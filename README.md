@@ -68,27 +68,26 @@ Set the toolbar to:
 
 > **Note**: `RNWApp.Package` is already the startup project. The build handles JS bundling and Hermes bytecode compilation automatically.
 
-### 3. Run with F5
+### 3. Run with Ctrl+F5
 
-Press **F5** (Start Debugging). This builds, bundles, and launches the app in Release mode with the debugger attached so `console.log` output is captured.
+Press **Ctrl+F5** (Start Without Debugging). This builds, bundles, and launches the app in pure Release mode with no debugger attached — fastest possible startup.
 
 ### 4. Read TTFP / TTI
 
-Go to **Output** window → select **Debug** from the "Show output from" dropdown:
+The values are displayed **on screen** in a dark banner at the top of the app:
 
 ```
-[PERF] TTFP: 142ms
-[PERF] TTI:  148ms
+⏱ Startup Performance
+TTFP: 142 ms
+TTI:  148 ms
 ```
-
-> **Tip**: `Ctrl+F` in the Output pane → search `[PERF]`.
 
 ### 5. Cold-start re-runs
 
-1. **Stop** the app (Shift+F5 or close the window)
+1. **Close** the app window
 2. **Wait** 2 seconds
-3. **F5** again (no rebuild needed — just relaunches)
-4. Note the new `[PERF]` values in Output
+3. **Ctrl+F5** again (no rebuild needed — just relaunches)
+4. Read the new values from the banner
 5. Repeat 5 times, take the **median**
 
 ### Record results
