@@ -58,26 +58,21 @@ After the frame is queued (rAF fires), `setTimeout(0)` returns to the **end of t
 yarn install
 ```
 
-### 2. Bundle the JS (one-time, required for Release)
-
-```powershell
-npx react-native bundle --platform windows --dev false --entry-file index.js --bundle-output windows\RNWApp\Bundle\index.windows.bundle --assets-dest windows\RNWApp\Bundle
-```
-
-### 3. Open in Visual Studio
+### 2. Open in Visual Studio
 
 Open `windows\RNWApp.sln` in Visual Studio 2022.
 
 Set the toolbar to:
 - **Configuration**: `Release`
 - **Platform**: `x64` (or `ARM64`)
-- **Startup project**: `RNWApp` (right-click → Set as Startup Project)
 
-### 4. Run with F5
+> **Note**: `RNWApp.Package` is already the startup project. The build handles JS bundling and Hermes bytecode compilation automatically.
 
-Press **F5** (Start Debugging). This launches the app in Release mode with the debugger attached so `console.log` output is captured.
+### 3. Run with F5
 
-### 5. Read TTFP / TTI
+Press **F5** (Start Debugging). This builds, bundles, and launches the app in Release mode with the debugger attached so `console.log` output is captured.
+
+### 4. Read TTFP / TTI
 
 Go to **Output** window → select **Debug** from the "Show output from" dropdown:
 
@@ -88,7 +83,7 @@ Go to **Output** window → select **Debug** from the "Show output from" dropdow
 
 > **Tip**: `Ctrl+F` in the Output pane → search `[PERF]`.
 
-### 6. Cold-start re-runs
+### 5. Cold-start re-runs
 
 1. **Stop** the app (Shift+F5 or close the window)
 2. **Wait** 2 seconds
