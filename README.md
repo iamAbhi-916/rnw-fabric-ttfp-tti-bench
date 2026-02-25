@@ -1,97 +1,104 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# RNW Fabric — TTFP & TTI Benchmark
 
-# Getting Started
+Measures **Time To First Paint** and **Time To Interactive** for a React Native Windows (Fabric New Architecture) app using JS-only instrumentation.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## What is measured
 
-## Step 1: Start Metro
+| Metric | Definition | How |
+|---|---|---|
+| **TTFP** | Time from bundle execution start to first frame queued for presentation | `useEffect` → `requestAnimationFrame` callback |
+| **TTI** | Time from bundle execution start to JS event loop being idle and handlers live | `rAF` → `setTimeout(0)` callback |
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## Measurement pipeline
 
-To start the Metro dev server, run the following command from the root of your React Native project:
-
-```sh
-# Using npm
-npm start
-
-# OR using Yarn
-yarn start
+```
+index.js line 1          App root useEffect       rAF callback        setTimeout(0)
+─────────────────────────────────────────────────────────────────────────────────────
+global.__PERF_T0         shadow tree committed     frame queued        JS idle
+= Date.now()             to Fabric C++ side        for DWM             handlers live
+│                        │                         │                   │
+▼                        ▼                         ▼                   ▼
+T0                       (not measured -            TTFP = now - T0    TTI = now - T0
+                          useEffect alone
+                          is NOT paint)
 ```
 
-## Step 2: Build and run your app
+### Why `useEffect` alone is NOT enough
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+`useEffect` fires after React's commit phase — the Fabric **shadow tree** is updated in C++ memory, but:
 
-### Android
+- No `ComponentView` has been created yet
+- No Composition Visual has been submitted to DWM
+- **Nothing is on screen**
 
-```sh
-# Using npm
-npm run android
+`requestAnimationFrame` fires on the **next compositor tick**, meaning the visuals are queued for DWM presentation. That's the closest JS can get to "pixels on screen" without native instrumentation.
 
-# OR using Yarn
-yarn android
+### Why `setTimeout(0)` = TTI
+
+After the frame is queued (rAF fires), `setTimeout(0)` returns to the **end of the JS macrotask queue**. If it executes promptly:
+
+- No pending JS work is blocking the event loop
+- Touch/press handlers can fire without delay
+- The app is **interactive**
+
+## Requirements
+
+| Requirement | Why |
+|---|---|
+| **Release mode** | Debug mode includes dev tools overhead, hot reload hooks, and slower JS execution (Hermes bytecode vs interpreted). Timing is meaningless in Debug. |
+| **New Architecture (Fabric)** | This app uses the Fabric renderer with Composition Visuals. The rendering pipeline is fundamentally different from Paper/XAML. |
+| **Cold start** | Kill the app fully before each run. Hot/warm starts skip bundle loading and skew results. |
+| **5+ runs, take median** | Individual runs vary due to OS scheduling, disk cache, and GC. Median resists outliers. |
+
+## How to run
+
+### 1. Build in Release mode
+
+```powershell
+npx @react-native-community/cli run-windows --mode Release
 ```
 
-### iOS
+### 2. Collect timings
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+Launch the app 5+ times (cold start each time). Look for console output:
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
+```
+[PERF] TTFP: 142ms
+[PERF] TTI:  148ms
 ```
 
-Then, and every time you update your native dependencies, run:
+In Release mode without Metro, check **Debug Output** in Visual Studio (attach to process → filter for `[PERF]`).
 
-```sh
-bundle exec pod install
-```
+### 3. Record results
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+| Run | TTFP (ms) | TTI (ms) |
+|-----|-----------|----------|
+| 1   |           |          |
+| 2   |           |          |
+| 3   |           |          |
+| 4   |           |          |
+| 5   |           |          |
+| **Median** |    |          |
 
-```sh
-# Using npm
-npm run ios
+## Accuracy caveats
 
-# OR using Yarn
-yarn ios
-```
+| Caveat | Impact |
+|---|---|
+| `Date.now()` has ~1 ms resolution | ±1 ms on each measurement |
+| rAF ≈ TTFP, not exact TTFP | Actual pixel display happens at next VSYNC after DWM composites (~1 frame / 6-16 ms later) |
+| No native-side timestamps | Cannot measure pre-JS time (process launch → JS engine init → bundle load) |
+| OS scheduling jitter | ±2-5 ms between runs is normal |
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+## Tech stack
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+- React Native **0.81** + React **19.1**
+- React Native Windows **0.81** (Fabric, New Arch, C++ Composition)
+- Hermes JS engine
+- Target: Windows 10 1809+ (x64/ARM64)
 
-## Step 3: Modify your app
+## Files changed
 
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+| File | Change |
+|---|---|
+| `index.js` | Added `global.__PERF_T0 = Date.now()` as first line (T0 anchor) |
+| `App.tsx` | Added `useTTFPandTTI()` hook — measures TTFP via rAF, TTI via setTimeout(0) |

@@ -1,3 +1,6 @@
+// ── T0: earliest possible JS timestamp (before any imports) ──
+global.__PERF_T0 = Date.now();
+
 /**
  * @format
  */
