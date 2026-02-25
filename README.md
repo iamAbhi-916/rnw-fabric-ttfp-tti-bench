@@ -50,26 +50,113 @@ After the frame is queued (rAF fires), `setTimeout(0)` returns to the **end of t
 | **Cold start** | Kill the app fully before each run. Hot/warm starts skip bundle loading and skew results. |
 | **5+ runs, take median** | Individual runs vary due to OS scheduling, disk cache, and GC. Median resists outliers. |
 
-## How to run
+## How to test
 
-### 1. Build in Release mode
+### Option A: Command Line (CLI)
+
+#### 1. Install dependencies
 
 ```powershell
-npx @react-native-community/cli run-windows --mode Release
+yarn install
 ```
 
-### 2. Collect timings
+#### 2. Build & launch in Release mode
 
-Launch the app 5+ times (cold start each time). Look for console output:
+```powershell
+npx @react-native-community/cli run-windows --mode Release --arch x64
+```
+
+This bundles the JS, builds the native project, and launches the app. On first run it may take 5-10 minutes (NuGet restore + full C++ build). Subsequent builds are incremental.
+
+#### 3. Read the output
+
+With Metro running (Debug) the `[PERF]` lines appear directly in the Metro terminal:
 
 ```
 [PERF] TTFP: 142ms
 [PERF] TTI:  148ms
 ```
 
-In Release mode without Metro, check **Debug Output** in Visual Studio (attach to process → filter for `[PERF]`).
+In Release mode (no Metro), the app writes to the **native debug output**. You can capture it with:
 
-### 3. Record results
+```powershell
+# While the app is running, in a separate terminal:
+DebugView.exe          # Sysinternals DebugView — shows OutputDebugString
+```
+
+Or attach Visual Studio (see Option B, Step 5).
+
+#### 4. Cold-start protocol
+
+```powershell
+# Kill the app between runs
+Stop-Process -Name RNWApp -ErrorAction SilentlyContinue
+
+# Wait 2 seconds for process cleanup
+Start-Sleep -Seconds 2
+
+# Relaunch (already built — just start the exe)
+Start-Process "$env:LOCALAPPDATA\Packages\RNWApp_*\RNWApp.exe"
+```
+
+Repeat 5+ times and record medians.
+
+---
+
+### Option B: Visual Studio
+
+#### 1. Install dependencies
+
+```powershell
+cd C:\path\to\rnw-fabric-ttfp-tti-bench
+yarn install
+```
+
+#### 2. Open the solution
+
+Open `windows\RNWApp.sln` in Visual Studio 2022.
+
+#### 3. Set build configuration
+
+In the toolbar:
+- **Configuration**: `Release`
+- **Platform**: `x64` (or `ARM64`)
+- **Startup project**: `RNWApp` (right-click → Set as Startup Project)
+
+#### 4. Bundle the JS (required for Release)
+
+Before building in Release, create the JS bundle:
+
+```powershell
+npx react-native bundle --platform windows --dev false --entry-file index.js --bundle-output windows\RNWApp\Bundle\index.windows.bundle --assets-dest windows\RNWApp\Bundle
+```
+
+#### 5. Build & run
+
+Press **F5** (Start Debugging) or **Ctrl+F5** (Start Without Debugging).
+
+#### 6. View TTFP / TTI output
+
+Go to **Output** window → select **Debug** from the "Show output from" dropdown. Filter or search for `[PERF]`:
+
+```
+[PERF] TTFP: 142ms
+[PERF] TTI:  148ms
+```
+
+> **Tip**: Use `Ctrl+F` in the Output pane and search `[PERF]` to jump directly to the lines.
+
+#### 7. Cold-start re-runs
+
+1. **Stop** the app (Shift+F5 or close the window)
+2. **Wait** 2 seconds
+3. **Ctrl+F5** to launch again (no rebuild needed)
+4. Note the new `[PERF]` values in Output
+5. Repeat 5 times
+
+---
+
+### Record results
 
 | Run | TTFP (ms) | TTI (ms) |
 |-----|-----------|----------|
