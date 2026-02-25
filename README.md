@@ -101,6 +101,10 @@ TTI:  148 ms
 | 5   |           |          |
 | **Median** |    |          |
 
+### Output Example
+<img width="972" height="978" alt="image" src="https://github.com/user-attachments/assets/e96e688b-3162-4221-9c6b-61bca45b798c" />
+
+
 ## Accuracy caveats
 
 | Caveat | Impact |
