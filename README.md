@@ -70,21 +70,32 @@ This bundles the JS, builds the native project, and launches the app. On first r
 
 #### 3. Read the output
 
-With Metro running (Debug) the `[PERF]` lines appear directly in the Metro terminal:
+> **Release mode does NOT use Metro.** The JS bundle is pre-built and embedded in the app. There is no Metro terminal to read from.
+
+`console.log` output in Release goes to the native **OutputDebugString** pipeline. Capture it with either:
+
+**a) Sysinternals DebugView** (no Visual Studio needed):
+
+```powershell
+# Download from https://learn.microsoft.com/en-us/sysinternals/downloads/debugview
+# Run it BEFORE launching the app:
+DebugView.exe
+# Filter → Include: [PERF]
+```
+
+**b) Visual Studio** — attach to the running process:
+
+1. Debug → Attach to Process → select `RNWApp.exe`
+2. Output window → "Debug" dropdown → search `[PERF]`
+
+Expected output:
 
 ```
 [PERF] TTFP: 142ms
 [PERF] TTI:  148ms
 ```
 
-In Release mode (no Metro), the app writes to the **native debug output**. You can capture it with:
-
-```powershell
-# While the app is running, in a separate terminal:
-DebugView.exe          # Sysinternals DebugView — shows OutputDebugString
-```
-
-Or attach Visual Studio (see Option B, Step 5).
+> **Debug mode** (with Metro): `[PERF]` lines appear directly in the Metro terminal. But Debug timings are meaningless — always use Release for benchmarking.
 
 #### 4. Cold-start protocol
 
