@@ -34,7 +34,7 @@ function useStartupPipeline() {
       const ttfpMs = Date.now() - T0;
       setTtfp(ttfpMs);
 
-      setTimeout(() => { // JS idle, interactive 
+      requestIdleCallback(() => {
         const ttiMs = Date.now() - T0;
         setTti(ttiMs);
 
@@ -56,7 +56,7 @@ function useStartupPipeline() {
           setPhases(p);
           NativeModules.StartupTiming.reportMetrics(trueTtfp, trueTti);
         } catch {}
-      }, 0);
+      });
     });
   }, []);
 
