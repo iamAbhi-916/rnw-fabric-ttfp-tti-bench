@@ -34,19 +34,20 @@ function useStartupPipeline() {
       const ttfpMs = Date.now() - T0;
       setTtfp(ttfpMs);
 
-      setTimeout(() => {
+      setTimeout(() => { // JS idle, interactive 
         const ttiMs = Date.now() - T0;
         setTti(ttiMs);
 
         try {
           const nt: NativeTimings = NativeModules.StartupTiming.getTimings();
           const nativeToJsMs = Math.max(0, nt.nativeElapsedMs - ttiMs);
-          const trueTtfp = +(nt.processInitMs + nt.configMs + nativeToJsMs + ttfpMs).toFixed(1);
-          const trueTti = +(nt.processInitMs + nt.configMs + nativeToJsMs + ttiMs).toFixed(1);
+          const hermesGapMs = Math.max(0, nativeToJsMs - nt.processInitMs - nt.configMs);
+          const trueTtfp = +(nativeToJsMs + ttfpMs).toFixed(1);
+          const trueTti = +(nativeToJsMs + ttiMs).toFixed(1);
           const p: Phases = {
             processInitMs: +nt.processInitMs.toFixed(1),
             configMs: +nt.configMs.toFixed(1),
-            nativeToJsMs: +nativeToJsMs.toFixed(1),
+            nativeToJsMs: +hermesGapMs.toFixed(1),
             jsTtfpMs: ttfpMs,
             jsToTtiMs: ttiMs - ttfpMs,
             trueTtfpMs: trueTtfp,

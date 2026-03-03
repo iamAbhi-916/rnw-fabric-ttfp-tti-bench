@@ -23,7 +23,7 @@ _Use_decl_annotations_ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE, PSTR,
   GetModuleFileNameW(NULL, appDirectory, MAX_PATH);
   PathCchRemoveFileSpec(appDirectory, MAX_PATH);
 
-  auto reactNativeWin32App{winrt::Microsoft::ReactNative::ReactNativeAppBuilder().Build()};
+  auto reactNativeWin32App{winrt::Microsoft::ReactNative::ReactNativeAppBuilder().Build()}; // hermes engine initialise,  js thread  , turbo , .hbc IO 
   CaptureAppBuilt();
 
   auto settings{reactNativeWin32App.ReactNativeHost().InstanceSettings()};
@@ -54,5 +54,5 @@ _Use_decl_annotations_ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE, PSTR,
   viewOptions.ComponentName(L"RNWApp");
 
   CaptureBeforeStart();
-  reactNativeWin32App.Start();
+  reactNativeWin32App.Start(); // JS execution starts here
 }
