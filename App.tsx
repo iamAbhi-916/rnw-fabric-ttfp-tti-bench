@@ -1,114 +1,114 @@
-/**
- * RNW Fabric TTFP / TTI Benchmark
- * Measures Time To First Paint and Time To Interactive from JS only.
- *
- * @format
- */
-
 import React from 'react';
-import {NewAppScreen} from '@react-native/new-app-screen';
-import {StatusBar, StyleSheet, Text, useColorScheme, View} from 'react-native';
-import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+import {NativeModules, StyleSheet, Text, View} from 'react-native';
+import {SafeAreaProvider} from 'react-native-safe-area-context';
 
-// T0 was captured in index.js before any imports
 const T0: number = (global as any).__PERF_T0 ?? Date.now();
 
-/**
- * Measures TTFP and TTI exactly once on first mount.
- * Returns the values so they can be displayed on screen.
- *
- * useEffect  → fires after React commits to Fabric shadow tree
- * rAF        → fires on next compositor tick (frame queued for DWM) ≈ TTFP
- * setTimeout → fires when JS event loop is idle (handlers live)   ≈ TTI
- */
-function useTTFPandTTI() {
+interface NativeTimings {
+  processInitMs: number;
+  configMs: number;
+  nativeElapsedMs: number;
+}
+
+interface Phases {
+  processInitMs: number;
+  configMs: number;
+  nativeToJsMs: number;
+  jsTtfpMs: number;
+  jsToTtiMs: number;
+  trueTtfpMs: number;
+  trueTtiMs: number;
+}
+
+function useStartupPipeline() {
   const [ttfp, setTtfp] = React.useState<number | null>(null);
   const [tti, setTti] = React.useState<number | null>(null);
-  const measured = React.useRef(false);
+  const [phases, setPhases] = React.useState<Phases | null>(null);
+  const ran = React.useRef(false);
 
   React.useEffect(() => {
-    if (measured.current) return;
-    measured.current = true;
+    if (ran.current) return;
+    ran.current = true;
 
     requestAnimationFrame(() => {
       const ttfpMs = Date.now() - T0;
       setTtfp(ttfpMs);
-      console.log(`[PERF] TTFP: ${ttfpMs}ms`);
 
       setTimeout(() => {
         const ttiMs = Date.now() - T0;
         setTti(ttiMs);
-        console.log(`[PERF] TTI:  ${ttiMs}ms`);
+
+        try {
+          const nt: NativeTimings = NativeModules.StartupTiming.getTimings();
+          const nativeToJsMs = Math.max(0, nt.nativeElapsedMs - ttiMs);
+          const trueTtfp = +(nt.processInitMs + nt.configMs + nativeToJsMs + ttfpMs).toFixed(1);
+          const trueTti = +(nt.processInitMs + nt.configMs + nativeToJsMs + ttiMs).toFixed(1);
+          const p: Phases = {
+            processInitMs: +nt.processInitMs.toFixed(1),
+            configMs: +nt.configMs.toFixed(1),
+            nativeToJsMs: +nativeToJsMs.toFixed(1),
+            jsTtfpMs: ttfpMs,
+            jsToTtiMs: ttiMs - ttfpMs,
+            trueTtfpMs: trueTtfp,
+            trueTtiMs: trueTti,
+          };
+          setPhases(p);
+          NativeModules.StartupTiming.reportMetrics(trueTtfp, trueTti);
+        } catch {}
       }, 0);
     });
   }, []);
 
-  return {ttfp, tti};
+  return {ttfp, tti, phases};
 }
 
 function App() {
-  const isDarkMode = useColorScheme() === 'dark';
-  const {ttfp, tti} = useTTFPandTTI();
-
+  const {ttfp, tti, phases} = useStartupPipeline();
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <PerfBanner ttfp={ttfp} tti={tti} />
-      <AppContent />
+      <View style={s.banner}>
+        <Text style={s.title}>⏱ Full Startup Pipeline</Text>
+        {phases ? (
+          <>
+            <Text style={s.section}>NATIVE (ETW / QPC)</Text>
+            <Row label="Process init" ms={phases.processInitMs} />
+            <Row label="Config" ms={phases.configMs} />
+            <Row label="Native→JS" ms={phases.nativeToJsMs} dim />
+            <Text style={s.section}>JS</Text>
+            <Row label="TTFP (T0→rAF)" ms={phases.jsTtfpMs} />
+            <Row label="TTI  (rAF→idle)" ms={phases.jsToTtiMs} />
+            <View style={s.hr} />
+            <Row label="★ TRUE TTFP" ms={phases.trueTtfpMs} hi />
+            <Row label="★ TRUE TTI" ms={phases.trueTtiMs} hi />
+          </>
+        ) : (
+          <>
+            <Row label="TTFP" ms={ttfp} />
+            <Row label="TTI" ms={tti} />
+          </>
+        )}
+      </View>
+      <Text>BenchMark for RNW</Text>
     </SafeAreaProvider>
   );
 }
 
-function PerfBanner({ttfp, tti}: {ttfp: number | null; tti: number | null}) {
+function Row({label, ms, hi, dim}: {label: string; ms: number | null; hi?: boolean; dim?: boolean}) {
   return (
-    <View style={styles.banner}>
-      <Text style={styles.bannerTitle}>⏱ Startup Performance</Text>
-      <Text style={styles.bannerText}>
-        TTFP: {ttfp !== null ? `${ttfp} ms` : 'measuring...'}
-      </Text>
-      <Text style={styles.bannerText}>
-        TTI:  {tti !== null ? `${tti} ms` : 'measuring...'}
-      </Text>
-    </View>
+    <Text style={[s.row, hi && s.hi, dim && s.dim]}>
+      {label}: {ms !== null ? `${ms} ms` : '...'}
+    </Text>
   );
 }
 
-function AppContent() {
-  const safeAreaInsets = useSafeAreaInsets();
-
-  return (
-    <View style={styles.container}>
-      <NewAppScreen
-        templateFileName="App.tsx"
-        safeAreaInsets={safeAreaInsets}
-      />
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  banner: {
-    backgroundColor: '#1a1a2e',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-  },
-  bannerTitle: {
-    color: '#e94560',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  bannerText: {
-    color: '#eee',
-    fontSize: 14,
-    fontFamily: 'Consolas',
-  },
+const s = StyleSheet.create({
+  banner: {backgroundColor: '#1a1a2e', paddingVertical: 12, paddingHorizontal: 20},
+  title: {color: '#e94560', fontSize: 16, fontWeight: 'bold', marginBottom: 6},
+  section: {color: '#888', fontSize: 10, fontWeight: '600', marginTop: 6, textTransform: 'uppercase', letterSpacing: 1},
+  row: {color: '#eee', fontSize: 13, fontFamily: 'Consolas', lineHeight: 20},
+  hi: {color: '#4ecca3', fontWeight: 'bold', fontSize: 14},
+  dim: {color: '#666', fontStyle: 'italic'},
+  hr: {borderTopWidth: 1, borderTopColor: '#333', marginVertical: 6},
 });
 
 export default App;
